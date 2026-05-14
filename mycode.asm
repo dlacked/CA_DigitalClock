@@ -15,7 +15,11 @@ ORG 100h
  menu_text   DB  '                                    Main Menu', 13,10, 0
  menu_options DB ' 1. Stop Watch', 13,10, ' 2. Exit', 13,10, 0
  choose_msg DB  'Select option [1-2]: ', 0  
- stopwatch_text DB 'Stop Watch', 0
+ stopwatch_text DB 'Stop Watch', 0             
+ stopwatch_s      DB 'Press S key to Stop ', 13, 10, 0
+ stopwatch_s_start DB 'Press S key to Start', 13, 10, 0
+ stopwatch_r      DB 'Press R key to Reset', 13, 10, 0
+ stopwatch_e      DB 'Press E key to Menu ', 13, 10, 0
 
 clear_screen:
     mov ah, 06h
@@ -32,6 +36,7 @@ clear_screen:
     MOV DS, AX
 
     ; Show main menu and wait for selection
+show_main_menu:
     LEA SI, equals
     CALL PRINT_STRING
     LEA SI, menu_text
@@ -69,6 +74,15 @@ alarm_main:
     CALL clear_screen                               
     GOTOXY 35, 2
     LEA SI, stopwatch_text
+    CALL PRINT_STRING
+    GOTOXY 30, 7
+    LEA SI, stopwatch_s
+    CALL PRINT_STRING
+    GOTOXY 30, 8
+    LEA SI, stopwatch_r
+    CALL PRINT_STRING
+    GOTOXY 30, 9
+    LEA SI, stopwatch_e
     CALL PRINT_STRING
     mov ah, 02h
     mov bh, 0
@@ -115,14 +129,59 @@ mainc:
     JZ increment_time  ; Jump if no key pressed 
     mov ah, 00
     int 16h
+    CMP AL, 73h        ; 's' - stop
+    JE stop_watch
+    CMP AL, 72h        ; 'r' - reset
+    JE reset_watch
+    CMP AL, 65h        ; 'e' - back to menu
+    JE go_main
     CMP AL, 61h
     JE increment_hour
-    CMP AL, 73h
-    JE decrement_hour
     CMP AL, 64h
     JE increment_minute
     CMP AL, 66h
-    JE decrement_minute 
+    JE decrement_minute
+    JMP increment_time
+
+stop_watch:
+    GOTOXY 30, 7
+    LEA SI, stopwatch_s_start
+    CALL PRINT_STRING
+wait_s:
+    MOV AH, 01h
+    INT 16h
+    JZ wait_s
+    MOV AH, 00h
+    INT 16h
+    CMP AL, 73h        ; 's' - resume
+    JE resume_watch
+    CMP AL, 72h        ; 'r' - reset
+    JE reset_watch
+    CMP AL, 65h        ; 'e' - back to menu
+    JE go_main
+    JMP wait_s
+
+go_main:
+    MOV HOUR, 0
+    MOV MINUTE, 0
+    MOV SECOND, 0
+    CALL clear_screen
+    JMP show_main_menu
+
+resume_watch:
+    GOTOXY 30, 7
+    LEA SI, stopwatch_s
+    CALL PRINT_STRING
+    JMP usec
+
+reset_watch:
+    GOTOXY 30, 7
+    LEA SI, stopwatch_s
+    CALL PRINT_STRING
+    MOV HOUR, 0
+    MOV MINUTE, 0
+    MOV SECOND, 0
+    JMP usec
 
 ;increment the hour if input is 'a'
 increment_hour:
@@ -131,14 +190,7 @@ increment_hour:
     JNE increment_time
     MOV HOUR, 0 
 
-; decrement the hour if input is 's'    
-decrement_hour:
-    DEC HOUR
-    CMP HOUR, 0
-    JNS increment_time   ; Jump if the sign flag is not set (i.e., HOUR is not negative)
-    MOV HOUR, 23         ; Wrap around to 23 if HOUR is negative
-
-; increment the minute if input is 'd'    
+; increment the minute if input is 'd'
 increment_minute:
     INC MINUTE
     CMP MINUTE, 60
