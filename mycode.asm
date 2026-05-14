@@ -15,7 +15,7 @@ ORG 100h
  menu_text   DB  '                                    Main Menu', 13,10, 0
  menu_options DB ' 1. Stop Watch', 13,10, ' 2. Exit', 13,10, 0
  choose_msg DB  'Select option [1-2]: ', 0  
- stopwatch_text DB 'stop watch', 0
+ stopwatch_text DB 'Stop Watch', 0
 
 clear_screen:
     mov ah, 06h
@@ -67,7 +67,7 @@ exit_program:
 
 alarm_main:
     CALL clear_screen                               
-    GOTOXY 36, 2
+    GOTOXY 35, 2
     LEA SI, stopwatch_text
     CALL PRINT_STRING
     mov ah, 02h
@@ -78,20 +78,20 @@ alarm_main:
     
 usec:
     ; print hour
-    GOTOXY 36, 5
+    GOTOXY 34, 5
     MOV AX, HOUR
-    CALL PRINT_NUM
+    CALL PRINT_TWO_DIGIT
 
     ; symbol
-    GOTOXY 38, 5
+    GOTOXY 37, 5
     mov dl,':'
     mov ah,2
     int 21h
 
     ; print minute
-    GOTOXY 40, 5
+    GOTOXY 39, 5
     MOV AX, MINUTE
-    CALL PRINT_NUM
+    CALL PRINT_TWO_DIGIT
 
     ; symbol
     GOTOXY 42, 5
@@ -102,19 +102,13 @@ usec:
     ; print seconds
     GOTOXY 44, 5
     MOV AX, SECOND
-    CALL PRINT_NUM
+    CALL PRINT_TWO_DIGIT
 
     ; Check if alarm is set and if current time matches alarm time 
     CALL not_alarm_time
  
 mainc:      
  
-    ; Delay for 1 second
-    MOV     CX, 0FH
-    MOV     DX, 4240H
-    MOV     AH, 86H
-    INT     15H
-    
     ; Check for inputs    
     MOV AH, 01h
     INT 16h
@@ -186,6 +180,23 @@ DEFINE_SCAN_NUM
 DEFINE_PRINT_STRING
 DEFINE_PRINT_NUM
 DEFINE_PRINT_NUM_UNS
+PRINT_TWO_DIGIT:
+    push bx
+    xor ah, ah
+    mov bl, 10
+    div bl
+    add al, '0'
+    mov dl, al
+    mov bh, ah
+    mov ah, 2
+    int 21h
+    mov al, bh
+    add al, '0'
+    mov dl, al
+    mov ah, 2
+    int 21h
+    pop bx
+    ret
 DEFINE_PTHIS
 
 END
