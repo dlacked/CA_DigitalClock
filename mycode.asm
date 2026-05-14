@@ -22,7 +22,13 @@ clear_screen:
     mov al, 0
     mov bh, 07h
     mov cx, 0300h
-    mov dx, 184Fh
+    mov dx, 174Fh  ; rows 3-23: 검정
+    int 10h
+    mov ah, 06h
+    mov al, 0
+    mov bh, 70h
+    mov cx, 1800h
+    mov dx, 184Fh  ; row 24: 회색
     int 10h
     ret
 
