@@ -2,16 +2,16 @@ include 'emu8086.inc'
 ORG 100h
 
 .DATA
- HOUR        DW 0
- MINUTE      DW 0
- SECOND      DW 0
- T_HOUR      DW 0
- T_MINUTE    DW 0
- T_SECOND    DW 0
- LAP_COUNT   DW 0
- LAP_HOUR    DW 0,0,0,0,0,0,0,0,0,0
- LAP_MIN     DW 0,0,0,0,0,0,0,0,0,0
- LAP_SEC     DW 0,0,0,0,0,0,0,0,0,0
+ HOUR         DW 0
+ MINUTE       DW 0
+ SECOND       DW 0
+ T_HOUR       DW 0
+ T_MINUTE     DW 0
+ T_SECOND     DW 0
+ LAP_COUNT    DW 0
+ LAP_HOUR     DW 0,0,0,0,0,0,0,0,0,0
+ LAP_MIN      DW 0,0,0,0,0,0,0,0,0,0
+ LAP_SEC      DW 0,0,0,0,0,0,0,0,0,0    
 
  menu_title      DB 'All-rounder Clock Setup', 0
  title_underbar  DB '__________________________', 0
@@ -33,160 +33,6 @@ ORG 100h
  input_sec_msg   DB 'Enter Second (00-59): ', 0
  timeout_msg     DB 'Times Out!', 0
  input_buf       DB 3, 0, 3 DUP(0)
-
-clear_screen:
-    mov ah, 06h
-    mov al, 0
-    mov bh, 07h
-    mov cx, 0400h
-    mov dx, 174Fh
-    int 10h
-    mov ah, 06h
-    mov al, 0
-    mov bh, 70h
-    mov cx, 1800h
-    mov dx, 184Fh
-    int 10h
-    ret
-
-clear_screen_blue:
-    mov ah, 06h
-    mov al, 0
-    mov bh, 1Fh
-    mov cx, 0000h
-    mov dx, 174Fh
-    int 10h
-    ret
-
-clear_top:
-    mov ah, 06h
-    mov al, 0
-    mov bh, 07h
-    mov cx, 0000h
-    mov dx, 034Fh
-    int 10h
-    ret
-
-input_two_digit proc
-    lea dx, input_buf
-    mov ah, 0Ah
-    int 21h
-    mov al, input_buf[2]
-    sub al, '0'
-    mov bl, 10
-    mul bl
-    mov bh, al
-    mov cl, input_buf[1]
-    cmp cl, 2
-    jl input_one_digit
-    mov al, input_buf[3]
-    sub al, '0'
-    add al, bh
-    xor ah, ah
-    ret
-input_one_digit:
-    xor ah, ah
-    mov al, bh
-    mov bl, 10
-    div bl
-    xor ah, ah
-    ret
-input_two_digit endp
-
-print_laps proc
-    push ax
-    push bx
-    push cx
-    push dx
-
-    MOV CX, LAP_COUNT
-    JCXZ print_laps_done
-    MOV BX, 0
-
-print_laps_loop:
-    ; 커서 이동 (row = 8+BX, col = 4)
-    MOV AH, 02h
-    MOV DH, BL
-    ADD DH, 8
-    MOV DL, 4
-    MOV BH, 0
-    INT 10h
-
-    ; "Lap " 출력
-    MOV AH, 02h
-    MOV DL, 'L'
-    INT 21h
-    MOV DL, 'a'
-    INT 21h
-    MOV DL, 'p'
-    INT 21h
-    MOV DL, ' '
-    INT 21h
-
-    ; 랩 번호 두 자리 출력 (01~10)
-    PUSH BX
-    MOV AX, BX
-    INC AX
-    CALL PRINT_TWO_DIGIT
-    POP BX
-
-    ; " | " 출력
-    MOV DL, ' '
-    MOV AH, 02h
-    INT 21h
-    MOV DL, '|'
-    MOV AH, 02h
-    INT 21h
-    MOV DL, ' '
-    MOV AH, 02h
-    INT 21h
-
-    ; 시 출력
-    PUSH BX
-    MOV AX, BX
-    SHL AX, 1
-    LEA SI, LAP_HOUR
-    ADD SI, AX
-    MOV AX, [SI]
-    CALL PRINT_TWO_DIGIT
-
-    MOV DL, ':'
-    MOV AH, 2
-    INT 21h
-
-    POP BX
-    PUSH BX
-    MOV AX, BX
-    SHL AX, 1
-    LEA SI, LAP_MIN
-    ADD SI, AX
-    MOV AX, [SI]
-    CALL PRINT_TWO_DIGIT
-
-    MOV DL, ':'
-    MOV AH, 2
-    INT 21h
-
-    POP BX
-    PUSH BX
-    MOV AX, BX
-    SHL AX, 1
-    LEA SI, LAP_SEC
-    ADD SI, AX
-    MOV AX, [SI]
-    CALL PRINT_TWO_DIGIT
-
-    POP BX
-    INC BX
-    LOOP print_laps_loop
-
-print_laps_done:
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-print_laps endp
 
 .CODE
     MOV AX, @DATA
@@ -247,6 +93,9 @@ go_main:
     MOV LAP_COUNT, 0
     JMP show_main_menu
 
+; =========================================================================
+; STOPWATCH LOGIC
+; =========================================================================
 stopwatch_main:
     CALL clear_screen
     MOV HOUR, 0
@@ -280,16 +129,24 @@ sw_display:
     CALL PRINT_TWO_DIGIT
 
 sw_check:
+    CALL DELAY_ONE_SEC    ; 1초 대기
+
     MOV AH, 01h
     INT 16h
     JZ sw_inc
     MOV AH, 00h
     INT 16h
-    CMP AL, 70h
+    CMP AL, 'p'
     JE sw_pause
-    CMP AL, 6Ch
+    CMP AL, 'P'
+    JE sw_pause
+    CMP AL, 'l'
     JE sw_lap
-    CMP AL, 72h
+    CMP AL, 'L'
+    JE sw_lap
+    CMP AL, 'r'
+    JE sw_reset
+    CMP AL, 'R'
     JE sw_reset
     CMP AH, 3Dh
     JE go_main
@@ -305,11 +162,17 @@ sw_wait:
     JZ sw_wait
     MOV AH, 00h
     INT 16h
-    CMP AL, 73h
+    CMP AL, 's'
     JE sw_resume
-    CMP AL, 6Ch
+    CMP AL, 'S'
+    JE sw_resume
+    CMP AL, 'l'
     JE sw_lap_paused
-    CMP AL, 72h
+    CMP AL, 'L'
+    JE sw_lap_paused
+    CMP AL, 'r'
+    JE sw_reset
+    CMP AL, 'R'
     JE sw_reset
     CMP AH, 3Dh
     JE go_main
@@ -324,7 +187,7 @@ sw_resume:
 sw_lap:
     MOV AX, LAP_COUNT
     CMP AX, 10
-    JGE sw_check
+    JGE sw_inc
     MOV BX, LAP_COUNT
     SHL BX, 1
     LEA SI, LAP_HOUR
@@ -341,7 +204,7 @@ sw_lap:
     MOV [SI], AX
     INC LAP_COUNT
     CALL print_laps
-    JMP sw_display
+    JMP sw_inc
 
 sw_lap_paused:
     MOV AX, LAP_COUNT
@@ -366,18 +229,7 @@ sw_lap_paused:
     JMP sw_wait
 
 sw_reset:
-    MOV HOUR, 0
-    MOV MINUTE, 0
-    MOV SECOND, 0
-    MOV LAP_COUNT, 0
-    CALL clear_screen
-    GOTOXY 1, 1
-    LEA SI, stopwatch_text
-    CALL PRINT_STRING
-    GOTOXY 4, 24
-    LEA SI, stopwatch_key
-    CALL PRINT_STRING
-    JMP sw_display
+    JMP stopwatch_main
 
 sw_inc:
     ADD SECOND, 1
@@ -394,6 +246,9 @@ sw_inc:
     MOV HOUR, 0
     JMP sw_display
 
+; =========================================================================
+; TIMER LOGIC
+; =========================================================================
 timer_main:
     CALL clear_screen
     GOTOXY 1, 1
@@ -414,6 +269,7 @@ timer_main:
     CALL PRINT_STRING
     CALL input_two_digit
     MOV T_SECOND, AX
+    
     CALL clear_screen
     GOTOXY 1, 1
     LEA SI, timer_text
@@ -440,18 +296,23 @@ timer_display:
     GOTOXY 14, 5
     MOV AX, T_SECOND
     CALL PRINT_TWO_DIGIT
+    
     MOV AX, T_HOUR
     OR  AX, T_MINUTE
     OR  AX, T_SECOND
     JZ  timer_timeout
 
 timer_check:
+    CALL DELAY_ONE_SEC    ; 1초 대기
+
     MOV AH, 01h
     INT 16h
     JZ timer_dec
     MOV AH, 00h
     INT 16h
-    CMP AL, 70h
+    CMP AL, 'p'
+    JE timer_pause_fn
+    CMP AL, 'P'
     JE timer_pause_fn
     CMP AH, 3Dh
     JE go_main
@@ -467,7 +328,9 @@ timer_wait_resume:
     JZ timer_wait_resume
     MOV AH, 00h
     INT 16h
-    CMP AL, 73h
+    CMP AL, 's'
+    JE timer_resume
+    CMP AL, 'S'
     JE timer_resume
     CMP AH, 3Dh
     JE go_main
@@ -518,9 +381,176 @@ timeout_exit:
     CALL clear_top
     JMP show_main_menu
 
-DEFINE_PRINT_STRING
 
-PRINT_TWO_DIGIT:
+; =========================================================================
+; PROCEDURES & SUBROUTINES
+; =========================================================================
+
+DELAY_ONE_SEC PROC
+    PUSH CX
+    PUSH DX
+    PUSH AX
+    ; 1,000,000 microseconds = 0F4240h
+    MOV CX, 0Fh
+    MOV DX, 4240h
+    MOV AH, 86h
+    INT 15h
+    POP AX
+    POP DX
+    POP CX
+    RET
+DELAY_ONE_SEC ENDP
+
+input_two_digit proc
+    lea dx, input_buf
+    mov ah, 0Ah
+    int 21h
+    mov al, input_buf[2]
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bh, al
+    mov cl, input_buf[1]
+    cmp cl, 2
+    jl input_one_digit
+    mov al, input_buf[3]
+    sub al, '0'
+    add al, bh
+    xor ah, ah
+    ret
+input_one_digit:
+    xor ah, ah
+    mov al, bh
+    mov bl, 10
+    div bl
+    xor ah, ah
+    ret
+input_two_digit endp
+
+print_laps proc
+    push ax
+    push bx
+    push cx
+    push dx
+
+    MOV CX, LAP_COUNT
+    JCXZ print_laps_done
+    MOV BX, 0
+
+print_laps_loop:
+    MOV AH, 02h
+    MOV DH, BL
+    ADD DH, 8
+    MOV DL, 4
+    MOV BH, 0
+    INT 10h
+
+    MOV AH, 02h
+    MOV DL, 'L'
+    INT 21h
+    MOV DL, 'a'
+    INT 21h
+    MOV DL, 'p'
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+    PUSH BX
+    MOV AX, BX
+    INC AX
+    CALL PRINT_TWO_DIGIT
+    POP BX
+
+    MOV DL, ' '
+    MOV AH, 02h
+    INT 21h
+    MOV DL, '|'
+    MOV AH, 02h
+    INT 21h
+    MOV DL, ' '
+    MOV AH, 02h
+    INT 21h
+
+    PUSH BX
+    MOV AX, BX
+    SHL AX, 1
+    LEA SI, LAP_HOUR
+    ADD SI, AX
+    MOV AX, [SI]
+    CALL PRINT_TWO_DIGIT
+
+    MOV DL, ':'
+    MOV AH, 2
+    INT 21h
+
+    POP BX
+    PUSH BX
+    MOV AX, BX
+    SHL AX, 1
+    LEA SI, LAP_MIN
+    ADD SI, AX
+    MOV AX, [SI]
+    CALL PRINT_TWO_DIGIT
+
+    MOV DL, ':'
+    MOV AH, 2
+    INT 21h
+
+    POP BX
+    PUSH BX
+    MOV AX, BX
+    SHL AX, 1
+    LEA SI, LAP_SEC
+    ADD SI, AX
+    MOV AX, [SI]
+    CALL PRINT_TWO_DIGIT
+
+    POP BX
+    INC BX
+    LOOP print_laps_loop
+
+print_laps_done:
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+print_laps endp
+
+clear_screen:
+    mov ah, 06h
+    mov al, 0
+    mov bh, 07h
+    mov cx, 0400h
+    mov dx, 174Fh
+    int 10h
+    mov ah, 06h
+    mov al, 0
+    mov bh, 70h
+    mov cx, 1800h
+    mov dx, 184Fh
+    int 10h
+    ret
+
+clear_screen_blue:
+    mov ah, 06h
+    mov al, 0
+    mov bh, 1Fh
+    mov cx, 0000h
+    mov dx, 174Fh
+    int 10h
+    ret
+
+clear_top:
+    mov ah, 06h
+    mov al, 0
+    mov bh, 07h
+    mov cx, 0000h
+    mov dx, 034Fh
+    int 10h
+    ret
+
+PRINT_TWO_DIGIT PROC
     push bx
     xor ah, ah
     mov bl, 10
@@ -537,5 +567,7 @@ PRINT_TWO_DIGIT:
     int 21h
     pop bx
     ret
+PRINT_TWO_DIGIT ENDP
 
+DEFINE_PRINT_STRING
 END
