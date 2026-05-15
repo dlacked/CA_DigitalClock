@@ -575,8 +575,8 @@ delay_one_sec:
     push ax
     push cx
     push dx
-    mov cx, 0x000A ;0.5s
-    mov dx, 0xAE60 ; 
+    mov cx, 0x0009 ;0.5s
+    mov dx, 0x8968 ; 
     mov ah, 86h
     int 15h
     pop dx
